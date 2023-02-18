@@ -1,3 +1,1 @@
-pub mod bf {
-    mod utils;
-}
+pub mod bf;
