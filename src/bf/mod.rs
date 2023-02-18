@@ -19,7 +19,7 @@ pub struct BF {
 impl BF {
     /// Creates boolean function which equals `0` for all arguments.
     pub fn zero(args_amount: usize) -> Self {
-        let cap = div_round(pow2(args_amount));
+        let cap = ws_div_ceil(pow2(args_amount));
         BF {
             values: vec![0; cap],
             args_amount,
@@ -28,7 +28,7 @@ impl BF {
 
     /// Creates boolean function which equals `1` for all arguments.
     pub fn one(args_amount: usize) -> Self {
-        let cap = div_round(pow2(args_amount));
+        let cap = ws_div_ceil(pow2(args_amount));
         BF {
             values: vec![Value::MAX; cap],
             args_amount,

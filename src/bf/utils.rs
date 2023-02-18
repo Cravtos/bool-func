@@ -25,8 +25,9 @@ pub fn log2(mut n: Value) -> Value {
     result
 }
 
+/// Divides n by `WORD_BIT_SIZE` and ceils result
 #[inline]
-pub fn div_round(n: Value) -> Value {
+pub fn ws_div_ceil(n: Value) -> Value {
     (n + (WORD_BIT_SIZE - 1)) >> log2(WORD_BIT_SIZE)
 }
 
@@ -68,12 +69,12 @@ mod tests {
 
     #[test]
     fn div_round_works() {
-        assert_eq!(div_round(0), 0);
-        assert_eq!(div_round(1), 1);
-        assert_eq!(div_round(WORD_BIT_SIZE), 1);
-        assert_eq!(div_round(WORD_BIT_SIZE + 1), 2);
-        assert_eq!(div_round(WORD_BIT_SIZE * 2), 2);
-        assert_eq!(div_round(WORD_BIT_SIZE * 3), 3);
-        assert_eq!(div_round(WORD_BIT_SIZE * 3 + 1), 4);
+        assert_eq!(ws_div_ceil(0), 0);
+        assert_eq!(ws_div_ceil(1), 1);
+        assert_eq!(ws_div_ceil(WORD_BIT_SIZE), 1);
+        assert_eq!(ws_div_ceil(WORD_BIT_SIZE + 1), 2);
+        assert_eq!(ws_div_ceil(WORD_BIT_SIZE * 2), 2);
+        assert_eq!(ws_div_ceil(WORD_BIT_SIZE * 3), 3);
+        assert_eq!(ws_div_ceil(WORD_BIT_SIZE * 3 + 1), 4);
     }
 }
