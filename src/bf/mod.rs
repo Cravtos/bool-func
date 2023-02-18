@@ -1,4 +1,4 @@
-mod utils;
+pub mod utils;
 use rand::{distributions::Uniform, Rng};
 use utils::*;
 
