@@ -1,5 +1,6 @@
-use super::{Value, WORD_BIT_SIZE, WORD_SIZE};
+use super::{Value, WORD_BIT_SIZE};
 
+#[allow(dead_code)]
 #[inline]
 pub fn is_pow2(n: usize) -> bool {
     n != 0 && (n & (n - 1)) == 0
@@ -27,8 +28,25 @@ pub fn log2(mut n: Value) -> Value {
 
 /// Divides n by `WORD_BIT_SIZE` and ceils result
 #[inline]
-pub fn ws_div_ceil(n: Value) -> Value {
+pub fn div_ws_ceil(n: Value) -> Value {
     (n + (WORD_BIT_SIZE - 1)) >> log2(WORD_BIT_SIZE)
+}
+
+/// Returns n modulo `WORD_BIT_SIZE`
+#[inline]
+pub fn mod_ws(n: Value) -> Value {
+    n & (WORD_BIT_SIZE - 1)
+}
+
+/// Calculates weight of a factor
+#[inline]
+pub fn weight(mut n: Value) -> usize {
+    let mut weight = 0;
+    while n != 0 {
+        n = n & (n - 1);
+        weight += 1;
+    }
+    weight
 }
 
 #[cfg(test)]
@@ -69,12 +87,22 @@ mod tests {
 
     #[test]
     fn div_round_works() {
-        assert_eq!(ws_div_ceil(0), 0);
-        assert_eq!(ws_div_ceil(1), 1);
-        assert_eq!(ws_div_ceil(WORD_BIT_SIZE), 1);
-        assert_eq!(ws_div_ceil(WORD_BIT_SIZE + 1), 2);
-        assert_eq!(ws_div_ceil(WORD_BIT_SIZE * 2), 2);
-        assert_eq!(ws_div_ceil(WORD_BIT_SIZE * 3), 3);
-        assert_eq!(ws_div_ceil(WORD_BIT_SIZE * 3 + 1), 4);
+        assert_eq!(div_ws_ceil(0), 0);
+        assert_eq!(div_ws_ceil(1), 1);
+        assert_eq!(div_ws_ceil(WORD_BIT_SIZE), 1);
+        assert_eq!(div_ws_ceil(WORD_BIT_SIZE + 1), 2);
+        assert_eq!(div_ws_ceil(WORD_BIT_SIZE * 2), 2);
+        assert_eq!(div_ws_ceil(WORD_BIT_SIZE * 3), 3);
+        assert_eq!(div_ws_ceil(WORD_BIT_SIZE * 3 + 1), 4);
+    }
+
+    #[test]
+    fn weight_works() {
+        assert!(weight(0b0000_0001) == 1);
+        assert!(weight(0b0000_1101) == 3);
+        assert!(weight(0b0000_0000) == 0);
+        assert!(weight(0b1000_0000) == 1);
+        assert!(weight(0b1111_1111) == 8);
+        assert!(weight(Value::MAX) == WORD_BIT_SIZE);
     }
 }
