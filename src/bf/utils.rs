@@ -1,4 +1,7 @@
-use super::{Value, WORD_BIT_SIZE};
+use super::Value;
+
+pub const WORD_SIZE: Value = std::mem::size_of::<Value>() as Value;
+pub const WORD_BIT_SIZE: Value = WORD_SIZE * 8;
 
 #[allow(dead_code)]
 #[inline]

@@ -1,11 +1,13 @@
+pub mod errors;
 pub mod utils;
-use rand::{distributions::Uniform, Rng};
+
+use errors::{BFError, Result};
 use utils::*;
 
-type Value = usize;
+use rand::{distributions::Uniform, Rng};
+use std::str::FromStr;
 
-pub const WORD_SIZE: Value = std::mem::size_of::<Value>() as Value;
-pub const WORD_BIT_SIZE: Value = WORD_SIZE * 8;
+type Value = usize;
 
 /// BF represents boolean function.
 /// Arguments are stored in little-endian fashion.
@@ -20,16 +22,30 @@ pub struct BF {
 
 impl BF {
     /// Creates boolean function which equals `0` for all arguments.
-    pub fn zero(args_amount: usize) -> Self {
+    ///
+    /// # Errors
+    /// Returns `BFError::NoArgs` if args_amount == 0
+    pub fn zero(args_amount: usize) -> Result<Self> {
+        if args_amount == 0 {
+            return Err(BFError::NoArgs);
+        }
+
         let cap = div_ws_ceil(pow2(args_amount));
-        BF {
+        Ok(BF {
             values: vec![0; cap],
             args_amount,
-        }
+        })
     }
 
     /// Creates boolean function which equals `1` for all arguments.
-    pub fn one(args_amount: usize) -> Self {
+    ///
+    /// # Errors
+    /// Returns `BFError::NoArgs` if args_amount == 0
+    pub fn one(args_amount: usize) -> Result<Self> {
+        if args_amount == 0 {
+            return Err(BFError::NoArgs);
+        }
+
         let cap = div_ws_ceil(pow2(args_amount));
         let bits_in_last_factor = mod_ws(pow2(args_amount));
         let mut values = vec![Value::MAX; cap];
@@ -39,15 +55,22 @@ impl BF {
             values[cap - 1] &= (1 << bits_in_last_factor) - 1;
         }
 
-        BF {
+        Ok(BF {
             values,
             args_amount,
-        }
+        })
     }
 
     /// Creates boolean function which has random result for all arguments.
     /// Result is uniformly distributed.
-    pub fn random(args_amount: usize) -> Self {
+    ///
+    /// # Errors
+    /// Returns `BFError::NoArgs` if args_amount == 0
+    pub fn random(args_amount: usize) -> Result<Self> {
+        if args_amount == 0 {
+            return Err(BFError::NoArgs);
+        }
+
         let cap = div_ws_ceil(pow2(args_amount));
         let bits_in_last_factor = mod_ws(pow2(args_amount));
 
@@ -60,10 +83,10 @@ impl BF {
             values[cap - 1] &= (1 << bits_in_last_factor) - 1;
         }
 
-        BF {
+        Ok(BF {
             values,
             args_amount,
-        }
+        })
     }
 
     /// Calculates weight of function
@@ -76,6 +99,21 @@ impl BF {
     }
 }
 
+// TODO: implement
+impl FromStr for BF {
+    type Err = BFError;
+
+    fn from_str(s: &str) -> Result<Self> {
+        todo!();
+    }
+}
+
+impl ToString for BF {
+    fn to_string(&self) -> String {
+        todo!();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,7 +121,7 @@ mod tests {
     #[test]
     fn zero_works() {
         let args_amount = 4;
-        let bf = BF::zero(args_amount);
+        let bf = BF::zero(args_amount).expect("args_amount is not zero");
         for value in &bf.values {
             assert!(*value == 0);
         }
@@ -97,7 +135,7 @@ mod tests {
     #[test]
     fn one_works() {
         let args_amount = WORD_SIZE;
-        let bf = BF::one(args_amount);
+        let bf = BF::one(args_amount).expect("args_amount is not zero");
 
         for value in &bf.values[..bf.values.len() - 1] {
             assert!(*value == Value::MAX);
@@ -114,11 +152,11 @@ mod tests {
     #[test]
     fn weight_works() {
         let args_amount = 2;
-        let bf = BF::one(args_amount);
+        let bf = BF::one(args_amount).expect("args_amount is not zero");
         assert!(bf.weight() == 4);
 
         let args_amount = log2(WORD_BIT_SIZE);
-        let bf = BF::one(args_amount);
+        let bf = BF::one(args_amount).expect("args_amount is not zero");
         assert!(bf.weight() == WORD_BIT_SIZE);
     }
 }
