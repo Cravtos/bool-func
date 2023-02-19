@@ -14,7 +14,7 @@ fn main() {
         };
 
         println!(
-            "weight/bits = {:.3}",
+            "args = {i:2}; weight/bits = {:.3}",
             bf.weight() as f64 / pow2(args_amount) as f64
         );
     }

@@ -1,22 +1,21 @@
 use super::Value;
 
-pub const WORD_SIZE: Value = std::mem::size_of::<Value>() as Value;
-pub const WORD_BIT_SIZE: Value = WORD_SIZE * 8;
+pub const WORD_SIZE: usize = std::mem::size_of::<Value>();
+pub const WORD_BIT_SIZE: usize = WORD_SIZE * 8;
 
-#[allow(dead_code)]
 #[inline]
 pub fn is_pow2(n: usize) -> bool {
     n != 0 && (n & (n - 1)) == 0
 }
 
 #[inline]
-pub fn pow2(n: Value) -> Value {
+pub fn pow2(n: usize) -> usize {
     1 << n
 }
 
 /// Returns floor(log2(n))
 #[inline]
-pub fn log2(mut n: Value) -> Value {
+pub fn log2(mut n: usize) -> usize {
     if n <= 1 {
         return 0;
     }
@@ -31,13 +30,19 @@ pub fn log2(mut n: Value) -> Value {
 
 /// Divides n by `WORD_BIT_SIZE` and ceils result
 #[inline]
-pub fn div_ws_ceil(n: Value) -> Value {
+pub fn div_ws_ceil(n: usize) -> usize {
     (n + (WORD_BIT_SIZE - 1)) >> log2(WORD_BIT_SIZE)
+}
+
+/// Divides n by `WORD_BIT_SIZE`
+#[inline]
+pub fn div_ws(n: usize) -> usize {
+    n >> log2(WORD_BIT_SIZE)
 }
 
 /// Returns n modulo `WORD_BIT_SIZE`
 #[inline]
-pub fn mod_ws(n: Value) -> Value {
+pub fn mod_ws(n: usize) -> usize {
     n & (WORD_BIT_SIZE - 1)
 }
 
