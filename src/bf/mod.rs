@@ -2,12 +2,13 @@ pub mod errors;
 pub mod utils;
 
 use errors::{BFError, Result};
+use std::fmt;
 use utils::*;
 
 use rand::{distributions::Uniform, Rng};
 use std::str::FromStr;
 
-type Value = u8;
+type Value = u128;
 
 /// BF represents boolean function.
 /// Arguments are stored in little-endian fashion.
@@ -103,7 +104,6 @@ impl BF {
     }
 }
 
-// TODO: implement
 impl FromStr for BF {
     type Err = BFError;
 
@@ -140,9 +140,9 @@ impl FromStr for BF {
     }
 }
 
-impl ToString for BF {
-    fn to_string(&self) -> String {
-        let string: String = self
+impl fmt::Display for BF {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut string: String = self
             .values
             .iter()
             .rev()
@@ -164,9 +164,9 @@ impl ToString for BF {
         let bits_in_last_factor = mod_ws(pow2(self.args_amount));
         if bits_in_last_factor != 0 {
             let used_bits = string.len() - WORD_BIT_SIZE + bits_in_last_factor;
-            return string[..used_bits].to_owned(); // NOTE: here could be unneeded allocation
+            string = string[..used_bits].to_owned(); // NOTE: here could be unneeded allocation
         }
-        string
+        write!(f, "{}", string)
     }
 }
 
