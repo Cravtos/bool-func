@@ -12,13 +12,13 @@ type Value = u128;
 
 /// BF represents boolean function.
 /// Arguments are stored in little-endian fashion.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BF {
     /// Vector, holding function values for corresponding arguments.
     ///
     /// Least significant bits are in `values[0]`.
     /// First bit of `value[0]` is the least significant bit.
-    values: Vec<Value>,
+    pub values: Vec<Value>,
 
     /// Amount of arguments boolean function takes.
     /// Can't be zero.
@@ -102,12 +102,95 @@ impl BF {
             .iter()
             .fold(0, |acc, &factor| acc + weight(factor))
     }
+
+    /// Calculates Mobuis transform inplace.
+    pub fn mobius(&mut self) -> &mut Self {
+        let m = log2(WORD_BIT_SIZE);
+        for value in self.values.iter_mut() {
+            for i in 0..m {
+                // let old = *value;
+                *value ^= (*value << pow2(i)) & utils::halving_mask(i);
+                // println!("{i} - {:08b} - {:08b} - {:08b} - {} - {:08b}", old, old << pow2(i), utils::halving_mask(i), pow2(i), *value);
+            }
+        }
+
+        // zero out leading trash if args_amount < log2(WORD_BIT_SIZE)
+        if self.args_amount <= m {
+            let bits_in_last_factor = mod_ws(pow2(self.args_amount));
+            self.values[0] &= (1 << bits_in_last_factor) - 1;
+        }
+
+        for i in 0..self.args_amount - m {
+            let cs = pow2(i);
+            for j in (0..self.values.len() / cs).step_by(2) {
+                for k in 0..cs {
+                    self.values[(j + 1) * cs + k] ^= self.values[j * cs + k];
+                }
+            }
+        }
+
+        self
+    }
+
+    pub fn eval(&self, args: usize) -> u8 {
+        let factor = div_ws(args);
+        let bit_in_factor = mod_ws(args);
+        ((self.values[factor] >> bit_in_factor) & 1) as u8
+    }
+
+    pub fn set(&mut self, args: usize) -> Result<()> {
+        if args >= pow2(self.args_amount) {
+            Err(BFError::ArgOutOfBounds {
+                given: args,
+                bounds: pow2(self.args_amount),
+            })?;
+        }
+
+        let factor = div_ws(args);
+        let bit_in_factor = mod_ws(args);
+        let mask = 1 << bit_in_factor;
+        self.values[factor] |= mask;
+
+        Ok(())
+    }
+
+    pub fn unset(&mut self, args: usize) -> Result<()> {
+        if args >= pow2(self.args_amount) {
+            Err(BFError::ArgOutOfBounds {
+                given: args,
+                bounds: pow2(self.args_amount),
+            })?;
+        }
+
+        let factor = div_ws(args);
+        let bit_in_factor = mod_ws(args);
+        let mask = 1 << bit_in_factor;
+        let mask = !mask;
+        self.values[factor] &= mask;
+
+        Ok(())
+    }
+
+    pub fn anf(&self) -> String {
+        // TODO: if eval(0) == 1 -> str(1)
+        // TODO: if eval(ALL) == 0 -> str(0)
+
+        (0..pow2(self.args_amount))
+            .into_iter()
+            .filter(|&args| self.eval(args) == 1)
+            .map(|_| ());
+
+        // TODO: treat zero individually
+        unimplemented!();
+    }
 }
 
 impl FromStr for BF {
     type Err = BFError;
 
     /// Converts string to boolean function
+    /// First char in string correspond to arguments with values zero.
+    /// Last char in string to arguments with values one.
     ///
     /// # Errors
     /// Returns `BFError::InvalidString` if `s` doesn't consist of zeros and ones,
@@ -118,54 +201,26 @@ impl FromStr for BF {
             return Err(BFError::NotPowTwo(len));
         }
 
-        let cap = div_ws_ceil(len);
-        let mut values: Vec<Value> = vec![0; cap];
+        let mut bf = BF::zero(log2(len)).expect("length not zero");
 
-        for (i, bit) in s.chars().rev().enumerate() {
-            let bit = match bit {
-                '0' => 0,
-                '1' => 1,
+        for (i, bit) in s.chars().enumerate() {
+            match bit {
+                '0' => (), // value already zero
+                '1' => bf.set(i)?,
                 _ => return Err(BFError::InvalidString(s.to_string())),
             };
-
-            let v_idx = div_ws(i);
-
-            values[v_idx] = (values[v_idx] << 1) | bit;
         }
 
-        Ok(BF {
-            values,
-            args_amount: log2(len),
-        })
+        Ok(bf)
     }
 }
 
 impl fmt::Display for BF {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut string: String = self
-            .values
-            .iter()
-            .rev()
-            .map(|value| {
-                let mut s = String::with_capacity(WORD_BIT_SIZE); // NOTE: allocations can be reduced to one.
-                for i in 0..WORD_BIT_SIZE {
-                    let bit = (value >> i) & 1;
-                    let char = match bit {
-                        0 => '0',
-                        1 => '1',
-                        _ => unreachable!(),
-                    };
-                    s.push(char);
-                }
-                s
-            })
+        let string: String = (0..pow2(self.args_amount))
+            .map(|arg| self.eval(arg).to_string())
             .collect();
 
-        let bits_in_last_factor = mod_ws(pow2(self.args_amount));
-        if bits_in_last_factor != 0 {
-            let used_bits = string.len() - WORD_BIT_SIZE + bits_in_last_factor;
-            string = string[..used_bits].to_owned(); // NOTE: here could be unneeded allocation
-        }
         write!(f, "{}", string)
     }
 }
@@ -228,9 +283,10 @@ mod tests {
         }
 
         test_valid("1111");
-        test_valid("00");
-        test_valid("11111111");
+        test_valid("0001");
+        test_valid("10111101");
         test_valid("1011011101110101");
+        test_valid("10000000000000000000001000000000");
 
         fn test_not_boolen(s: &str) {
             let res = s.parse::<BF>();
@@ -255,5 +311,49 @@ mod tests {
         test_not_pow_two("0");
         test_not_pow_two("111");
         test_not_pow_two("11111111111111111111111111111");
+    }
+
+    #[test]
+    fn eval_works() {
+        let bf = BF::from_str("1010110011110000").expect("Can convert");
+        assert_eq!(bf.eval(0), 1);
+        assert_eq!(bf.eval(1), 0);
+        assert_eq!(bf.eval(2), 1);
+        assert_eq!(bf.eval(8), 1);
+        assert_eq!(bf.eval(9), 1);
+        assert_eq!(bf.eval(14), 0);
+        assert_eq!(bf.eval(15), 0);
+    }
+
+    #[test]
+    fn set_works() {
+        fn test_set_unset(bf: &mut BF, args: usize) {
+            assert_eq!(bf.eval(args), 0);
+            bf.set(args).expect("Valid arg");
+            assert_eq!(bf.eval(args), 1);
+            bf.unset(args).expect("Valid arg");
+            assert_eq!(bf.eval(args), 0);
+        }
+
+        let mut bf = BF::zero(log2(WORD_BIT_SIZE) + 1).expect("Args amount not zero");
+        for i in 0..pow2(bf.args_amount) {
+            test_set_unset(&mut bf, i);
+        }
+    }
+
+    #[test]
+    fn mobius_works() {
+        for _ in 0..100 {
+            let mut bf = BF::random(16).expect("arg amount is not zero");
+            let old = bf.clone();
+            bf.mobius();
+            bf.mobius();
+            assert!(bf == old);
+        }
+
+        // TODO: TEST: all zero
+        // TODO: TEST: all one
+        // TODO: TEST: known fns: * one factor, * 4 factors
+        // TODO: TEST: 31bit
     }
 }

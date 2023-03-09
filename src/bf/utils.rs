@@ -13,6 +13,22 @@ pub fn pow2(n: usize) -> usize {
     1 << n
 }
 
+#[inline]
+pub fn halving_mask(i: usize) -> Value {
+    let mask: u128 = match i {
+        0 => 0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA,
+        1 => 0xCCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC_CCCC,
+        2 => 0xF0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0_F0F0,
+        3 => 0xFF00_FF00_FF00_FF00_FF00_FF00_FF00_FF00,
+        4 => 0xFFFF_0000_FFFF_0000_FFFF_0000_FFFF_0000,
+        5 => 0xFFFF_FFFF_0000_0000_FFFF_FFFF_0000_0000,
+        6 => 0xFFFF_FFFF_FFFF_FFFF_0000_0000_0000_0000,
+        _ => panic!("Unexpected i for halving const"),
+    };
+
+    (mask & (Value::MAX as u128)) as Value
+}
+
 /// Returns floor(log2(n))
 #[inline]
 pub fn log2(mut n: usize) -> usize {

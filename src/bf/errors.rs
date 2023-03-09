@@ -10,4 +10,6 @@ pub enum BFError {
     InvalidString(String),
     #[error("string length should be power of two (got: `{0}`)")]
     NotPowTwo(usize),
+    #[error("given argument ({given}) is out of bounds ({bounds})")]
+    ArgOutOfBounds { given: usize, bounds: usize },
 }
