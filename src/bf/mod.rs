@@ -204,6 +204,30 @@ impl BF {
 
         anf
     }
+
+    pub fn deg(&self) -> usize {
+        let mut bf_copy = self.clone();
+        let bf_mob = bf_copy.mobius();
+
+        let n = pow2(self.args_amount);
+        if bf_mob.eval(n - 1) == 1 {
+            return self.args_amount;
+        }
+
+        let mut deg = 0;
+        for arg in (0..n - 1).rev() {
+            if bf_mob.eval(arg) == 0 {
+                continue;
+            }
+
+            let weight = utils::weight(arg as Value);
+            if weight > deg {
+                deg = weight;
+            }
+        }
+
+        deg
+    }
 }
 
 impl FromStr for BF {
@@ -416,5 +440,20 @@ mod tests {
 
         let bf = BF::from_str("0000").expect("can convert");
         assert_eq!(bf.anf(), "0");
+    }
+
+    #[test]
+    fn degree_works() {
+        let bf = BF::one(16).unwrap();
+        assert_eq!(bf.deg(), 0);
+
+        let bf = BF::zero(16).unwrap();
+        assert_eq!(bf.deg(), 0);
+
+        let bf = BF::from_str("0001").unwrap();
+        assert_eq!(bf.deg(), 2);
+
+        let bf = BF::from_str("00000001").unwrap();
+        assert_eq!(bf.deg(), 3);
     }
 }
