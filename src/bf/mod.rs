@@ -5,6 +5,7 @@ use errors::{BFError, Result};
 use std::fmt;
 use utils::*;
 
+use itertools::Itertools;
 use rand::{distributions::Uniform, Rng};
 use std::str::FromStr;
 
@@ -108,16 +109,15 @@ impl BF {
         let m = log2(WORD_BIT_SIZE);
         for value in self.values.iter_mut() {
             for i in 0..m {
-                // let old = *value;
                 *value ^= (*value << pow2(i)) & utils::halving_mask(i);
-                // println!("{i} - {:08b} - {:08b} - {:08b} - {} - {:08b}", old, old << pow2(i), utils::halving_mask(i), pow2(i), *value);
             }
         }
 
         // zero out leading trash if args_amount < log2(WORD_BIT_SIZE)
-        if self.args_amount <= m {
+        if self.args_amount < m {
             let bits_in_last_factor = mod_ws(pow2(self.args_amount));
             self.values[0] &= (1 << bits_in_last_factor) - 1;
+            return self;
         }
 
         for i in 0..self.args_amount - m {
@@ -172,16 +172,37 @@ impl BF {
     }
 
     pub fn anf(&self) -> String {
-        // TODO: if eval(0) == 1 -> str(1)
-        // TODO: if eval(ALL) == 0 -> str(0)
+        if self.weight() == 0 {
+            return String::from("0");
+        }
 
-        (0..pow2(self.args_amount))
+        if self.weight() == pow2(self.args_amount) {
+            return String::from("1");
+        }
+
+        let mut anf: String = (1..pow2(self.args_amount) as u128)
             .into_iter()
-            .filter(|&args| self.eval(args) == 1)
-            .map(|_| ());
+            .filter(|&args| self.eval(args as usize) == 1)
+            .map(|args| {
+                (0..WORD_BIT_SIZE)
+                    .into_iter()
+                    .filter(|&i| (args >> i) & 1 == 1)
+                    .map(|i| format!("x{}", self.args_amount - i))
+                    .intersperse(String::from("&"))
+                    .collect::<String>()
+            })
+            .intersperse(String::from(" + "))
+            .collect();
 
-        // TODO: treat zero individually
-        unimplemented!();
+        if self.eval(0) == 1 {
+            let mut one = String::from("1");
+            if !anf.is_empty() {
+                one.push_str(" + ");
+            }
+            anf = one + &anf;
+        }
+
+        anf
     }
 }
 
@@ -342,18 +363,58 @@ mod tests {
     }
 
     #[test]
-    fn mobius_works() {
-        for _ in 0..100 {
-            let mut bf = BF::random(16).expect("arg amount is not zero");
+    fn mobius_random_reversability() {
+        for i in 0..100 {
+            let mut bf = BF::random(i % 16 + 1).expect("arg amount is not zero");
             let old = bf.clone();
             bf.mobius();
             bf.mobius();
+            println!("{}", i % 16 + 1);
             assert!(bf == old);
         }
+    }
 
-        // TODO: TEST: all zero
-        // TODO: TEST: all one
-        // TODO: TEST: known fns: * one factor, * 4 factors
-        // TODO: TEST: 31bit
+    #[test]
+    fn mobius_31_factor_reversability() {
+        let mut bf = BF::random(31).expect("arg amount is not zero");
+        let old = bf.clone();
+        bf.mobius();
+        bf.mobius();
+        assert!(bf == old);
+    }
+
+    #[test]
+    fn mobius_transform_const0_anf() {
+        let mut bf = BF::zero(16).unwrap();
+        let anf = bf.anf();
+
+        bf.mobius();
+        assert_eq!(bf.to_string(), "0".repeat(pow2(16) as usize));
+        assert_eq!(anf, "0");
+    }
+
+    #[test]
+    fn mobius_transform_const1_anf() {
+        let mut bf = BF::one(16).unwrap();
+        let anf = bf.anf();
+
+        bf.mobius();
+        assert_eq!(
+            bf.to_string(),
+            "1".to_owned() + &"0".repeat(pow2(16) as usize - 1)
+        );
+        assert_eq!(anf, "1");
+    }
+
+    #[test]
+    fn anf_works() {
+        let bf = BF::from_str("11000110").expect("can convert");
+        assert_eq!(bf.anf(), "1 + x3 + x3&x1 + x2&x1");
+
+        let bf = BF::from_str("1111").expect("can convert");
+        assert_eq!(bf.anf(), "1");
+
+        let bf = BF::from_str("0000").expect("can convert");
+        assert_eq!(bf.anf(), "0");
     }
 }

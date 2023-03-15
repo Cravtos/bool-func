@@ -8,3 +8,7 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 thiserror = "1.0.38"
+itertools = "0.10.5"
+
+[profile.test]
+opt-level = 3
