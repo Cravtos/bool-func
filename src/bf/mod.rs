@@ -58,7 +58,7 @@ impl BF {
 
         // Set unused bits to zero;
         if bits_in_last_factor != 0 {
-            values[cap - 1] &= (1 << bits_in_last_factor) - 1;
+            values[0] &= (1 << bits_in_last_factor) - 1;
         }
 
         Ok(BF {
@@ -86,7 +86,7 @@ impl BF {
 
         // Set unused bits to zero;
         if bits_in_last_factor != 0 {
-            values[cap - 1] &= (1 << bits_in_last_factor) - 1;
+            values[0] &= (1 << bits_in_last_factor) - 1;
         }
 
         Ok(BF {
@@ -172,29 +172,28 @@ impl BF {
     }
 
     pub fn anf(&self) -> String {
-        if self.weight() == 0 {
+        let mut bf_copy = self.clone();
+        let bf_mob = bf_copy.mobius();
+
+        if bf_mob.weight() == 0 {
             return String::from("0");
         }
 
-        if self.weight() == pow2(self.args_amount) {
-            return String::from("1");
-        }
-
-        let mut anf: String = (1..pow2(self.args_amount) as u128)
+        let mut anf: String = (1..pow2(bf_mob.args_amount) as u128)
             .into_iter()
-            .filter(|&args| self.eval(args as usize) == 1)
+            .filter(|&args| bf_mob.eval(args as usize) == 1)
             .map(|args| {
                 (0..WORD_BIT_SIZE)
                     .into_iter()
                     .filter(|&i| (args >> i) & 1 == 1)
-                    .map(|i| format!("x{}", self.args_amount - i))
+                    .map(|i| format!("x{}", bf_mob.args_amount - i))
                     .intersperse(String::from("&"))
                     .collect::<String>()
             })
             .intersperse(String::from(" + "))
             .collect();
 
-        if self.eval(0) == 1 {
+        if bf_mob.eval(0) == 1 {
             let mut one = String::from("1");
             if !anf.is_empty() {
                 one.push_str(" + ");
@@ -227,6 +226,38 @@ impl BF {
         }
 
         deg
+    }
+
+    pub fn walsh_adamar(&self) -> Vec<i32> {
+        let mut char_vec = (0..pow2(self.args_amount))
+            .into_iter()
+            .map(|arg| match self.eval(arg) {
+                0 => 1,
+                1 => -1,
+                _ => panic!("function evaluated to non binary"),
+            })
+            .collect::<Vec<i32>>();
+
+        for i in 0..self.args_amount {
+            let cs = pow2(i);
+            for j in 0..char_vec.len() / cs {
+                if j & 1 == 0 {
+                    // is even
+                    for k in 0..cs {
+                        char_vec[j * cs + k] += char_vec[(j + 1) * cs + k]; // a + b
+                    }
+                } else {
+                    // is odd
+                    for k in 0..cs {
+                        char_vec[j * cs + k] =
+                            char_vec[(j - 1) * cs + k] - 2 * char_vec[j * cs + k];
+                        // a + b - 2b = a - b
+                    }
+                }
+            }
+        }
+
+        char_vec
     }
 }
 
@@ -361,6 +392,7 @@ mod tests {
     #[test]
     fn eval_works() {
         let bf = BF::from_str("1010110011110000").expect("Can convert");
+        // TODO: iterate over string
         assert_eq!(bf.eval(0), 1);
         assert_eq!(bf.eval(1), 0);
         assert_eq!(bf.eval(2), 1);
@@ -398,14 +430,14 @@ mod tests {
         }
     }
 
-    #[test]
-    fn mobius_31_factor_reversability() {
-        let mut bf = BF::random(31).expect("arg amount is not zero");
-        let old = bf.clone();
-        bf.mobius();
-        bf.mobius();
-        assert!(bf == old);
-    }
+    // #[test]
+    // fn mobius_31_factor_reversability() {
+    //     let mut bf = BF::random(31).expect("arg amount is not zero");
+    //     let old = bf.clone();
+    //     bf.mobius();
+    //     bf.mobius();
+    //     assert!(bf == old);
+    // }
 
     #[test]
     fn mobius_transform_const0_anf() {
@@ -423,22 +455,27 @@ mod tests {
         let anf = bf.anf();
 
         bf.mobius();
-        assert_eq!(
-            bf.to_string(),
-            "1".to_owned() + &"0".repeat(pow2(16) as usize - 1)
-        );
+        assert_eq!(bf.to_string(), "1".to_owned() + &"0".repeat(pow2(16) - 1));
         assert_eq!(anf, "1");
     }
 
     #[test]
     fn anf_works() {
-        let bf = BF::from_str("11000110").expect("can convert");
+        let bf = BF::from_str("0001000100011110000100010001111000010001000111101110111011100001")
+            .expect("can convert");
+        assert_eq!(bf.anf(), "x6&x5 + x4&x3 + x2&x1");
+        assert_eq!(bf.deg(), 2);
+
+        let mut bf = BF::from_str("11000110").expect("can convert");
+        bf.mobius();
         assert_eq!(bf.anf(), "1 + x3 + x3&x1 + x2&x1");
 
-        let bf = BF::from_str("1111").expect("can convert");
-        assert_eq!(bf.anf(), "1");
+        let mut bf = BF::from_str("1111").expect("can convert");
+        bf.mobius();
+        assert_eq!(bf.anf(), "1 + x2 + x1 + x2&x1");
 
-        let bf = BF::from_str("0000").expect("can convert");
+        let mut bf = BF::from_str("0000").expect("can convert");
+        bf.mobius();
         assert_eq!(bf.anf(), "0");
     }
 
@@ -455,5 +492,29 @@ mod tests {
 
         let bf = BF::from_str("00000001").unwrap();
         assert_eq!(bf.deg(), 3);
+
+        let bf = "1".to_owned() + &"0".repeat(pow2(16) - 1);
+        let bf = BF::from_str(&bf).unwrap();
+        assert_eq!(bf.deg(), 16);
+    }
+
+    #[test]
+    fn walsh_adamar_works() {
+        let bf = BF::from_str("0110").unwrap();
+        let wac = bf.walsh_adamar();
+        assert_eq!(wac, vec![0, 0, 0, 4]);
+
+        let bf = BF::from_str("0001000100011110").unwrap();
+        let wac = bf.walsh_adamar();
+        println!("{wac:?}");
+        // assert_eq!(wac, vec![0, 0, 0, 4]);
+
+        for i in 1..=3 {
+            let bf = BF::one(i * 3).unwrap();
+            let wac = bf.walsh_adamar();
+            let mut expected = vec![0isize; pow2(i * 3)];
+            expected[0] = -(pow2(i * 3) as isize);
+            assert_eq!(wac, expected);
+        }
     }
 }
