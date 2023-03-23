@@ -33,6 +33,19 @@ fn measure_walsh() {
     println!("Args amount: {}", log2(wac.len()));
 }
 
+fn measure_cor() {
+    let bf = BF::one(28).unwrap();
+
+    let start = Instant::now();
+    let cor = bf.cor();
+    let duration = start.elapsed();
+
+    println!("Time taken: {} seconds", duration.as_secs());
+    println!("Cor immunity: {}", cor);
+}
+
 fn main() {
+    measure_cor();
     measure_walsh();
+    check_weight();
 }

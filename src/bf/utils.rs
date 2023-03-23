@@ -3,6 +3,39 @@ use super::Value;
 pub const WORD_SIZE: usize = std::mem::size_of::<Value>();
 pub const WORD_BIT_SIZE: usize = WORD_SIZE * 8;
 
+pub struct BinComb {
+    cur: usize,
+    n: usize,
+}
+
+impl BinComb {
+    pub fn new(n: usize, k: usize) -> Self {
+        BinComb {
+            cur: (1 << k) - 1,
+            n,
+        }
+    }
+}
+
+impl Iterator for BinComb {
+    type Item = usize;
+
+    // https://stackoverflow.com/questions/46023719/what-is-an-efficient-code-for-generating-n-binary-digit-numbers-with-k-bits-set
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cur >= (1 << self.n) {
+            return None;
+        }
+
+        let old = self.cur;
+
+        let lowbit = self.cur & !(self.cur - 1);
+        let ones = self.cur & !(self.cur + lowbit);
+        self.cur = self.cur + lowbit + (ones / lowbit >> 1);
+
+        Some(old)
+    }
+}
+
 #[inline]
 pub fn is_pow2(n: usize) -> bool {
     n != 0 && (n & (n - 1)) == 0
@@ -75,6 +108,8 @@ pub fn weight(mut n: Value) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use std::ops::BitAnd;
+
     use super::*;
 
     #[test]
@@ -128,5 +163,13 @@ mod tests {
         assert!(weight(0b1000_0000) == 1);
         assert!(weight(0b1111_1111) == 8);
         assert!(weight(Value::MAX) == WORD_BIT_SIZE);
+    }
+
+    #[test]
+    fn bin_comb_works() {
+        // TODO: check that iter length = Ckn and all unrepeatable with given weight
+        for comb in BinComb::new(5, 1) {
+            println!("{comb:05b}");
+        }
     }
 }

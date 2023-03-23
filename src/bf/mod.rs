@@ -9,6 +9,9 @@ use itertools::Itertools;
 use rand::{distributions::Uniform, Rng};
 use std::str::FromStr;
 
+#[cfg(test)]
+type Value = u8;
+#[cfg(not(test))]
 type Value = u128;
 
 /// BF represents boolean function.
@@ -132,12 +135,14 @@ impl BF {
         self
     }
 
+    // Evaluates boolean function on given argument
     pub fn eval(&self, args: usize) -> u8 {
         let factor = div_ws(args);
         let bit_in_factor = mod_ws(args);
         ((self.values[factor] >> bit_in_factor) & 1) as u8
     }
 
+    // Change function to evaluate to one on given argument
     pub fn set(&mut self, args: usize) -> Result<()> {
         if args >= pow2(self.args_amount) {
             Err(BFError::ArgOutOfBounds {
@@ -154,6 +159,7 @@ impl BF {
         Ok(())
     }
 
+    // Change function to evaluate to zero on given argument
     pub fn unset(&mut self, args: usize) -> Result<()> {
         if args >= pow2(self.args_amount) {
             Err(BFError::ArgOutOfBounds {
@@ -171,6 +177,7 @@ impl BF {
         Ok(())
     }
 
+    // Get arithmetic normal form of function
     pub fn anf(&self) -> String {
         let mut bf_copy = self.clone();
         let bf_mob = bf_copy.mobius();
@@ -204,6 +211,7 @@ impl BF {
         anf
     }
 
+    // Calculate function degree
     pub fn deg(&self) -> usize {
         let mut bf_copy = self.clone();
         let bf_mob = bf_copy.mobius();
@@ -228,6 +236,7 @@ impl BF {
         deg
     }
 
+    // Get walsh adamar coefficients
     pub fn walsh_adamar(&self) -> Vec<i32> {
         let mut char_vec = (0..pow2(self.args_amount))
             .into_iter()
@@ -258,6 +267,21 @@ impl BF {
         }
 
         char_vec
+    }
+
+    // Calculate maximal correlation immunity of a function.
+    pub fn cor(&self) -> usize {
+        let wac = self.walsh_adamar();
+
+        for k in 1..=self.args_amount {
+            for comb in BinComb::new(self.args_amount, k) {
+                if wac[comb] != 0 {
+                    return k - 1;
+                }
+            }
+        }
+
+        self.args_amount
     }
 }
 
@@ -512,9 +536,23 @@ mod tests {
         for i in 1..=3 {
             let bf = BF::one(i * 3).unwrap();
             let wac = bf.walsh_adamar();
-            let mut expected = vec![0isize; pow2(i * 3)];
-            expected[0] = -(pow2(i * 3) as isize);
+            let mut expected = vec![0i32; pow2(i * 3)];
+            expected[0] = -(pow2(i * 3) as i32);
             assert_eq!(wac, expected);
         }
+    }
+
+    #[test]
+    fn cor_works() {
+        let args_amount = 28;
+
+        let bf = BF::one(args_amount).unwrap();
+        assert_eq!(bf.cor(), args_amount);
+
+        let bf = BF::zero(args_amount).unwrap();
+        assert_eq!(bf.cor(), args_amount);
+
+        let bf = BF::from_str("01101001").unwrap();
+        assert_eq!(bf.cor(), 2);
     }
 }
