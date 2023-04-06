@@ -104,7 +104,7 @@ impl BF {
 
         self.values
             .iter()
-            .fold(0, |acc, &factor| acc + weight(factor))
+            .fold(0, |acc, &factor| acc + weight(factor as usize))
     }
 
     /// Calculates Mobuis transform inplace.
@@ -227,7 +227,7 @@ impl BF {
                 continue;
             }
 
-            let weight = utils::weight(arg as Value);
+            let weight = utils::weight(arg as usize);
             if weight > deg {
                 deg = weight;
             }
@@ -282,6 +282,79 @@ impl BF {
         }
 
         self.args_amount
+    }
+
+    pub fn linear(args_amount: usize, coefs: usize) -> Result<Self> {
+        if args_amount == 0 {
+            return Err(BFError::NoArgs);
+        }
+
+        let cap = div_ws_ceil(pow2(args_amount));
+        let bits_in_last_factor = mod_ws(pow2(args_amount));
+        let mut values = vec![Value::MIN; cap];
+
+        // Set unused bits to zero;
+        if bits_in_last_factor != 0 {
+            values[0] &= (1 << bits_in_last_factor) - 1;
+        }
+
+        let mut bf = BF {
+            args_amount,
+            values,
+        };
+
+        for i in 0..pow2(args_amount) {
+            let result = weight(i & coefs) & 1;
+
+            if result == 1 {
+                bf.set(i).unwrap();
+            }
+        }
+
+        Ok(bf)
+    }
+
+    // Returns inverse of a funtion
+    pub fn inverse(&self) -> Self {
+        let args_amount = self.args_amount;
+        let mut values: Vec<Value> = self.values.iter().map(|value| !value).collect();
+
+        // Set unused bits to zero;
+        let bits_in_last_factor = mod_ws(pow2(args_amount));
+        if bits_in_last_factor != 0 {
+            values[0] &= (1 << bits_in_last_factor) - 1;
+        }
+
+        BF {
+            args_amount,
+            values,
+        }
+    }
+
+    // Calculates nonlinearity of a function (distance to class of affine functions).
+    pub fn nonlinearity(&self) -> usize {
+        let wac = self.walsh_adamar();
+
+        pow2(self.args_amount - 1) - (wac.iter().map(|coef| coef.abs()).max().unwrap() as usize) / 2
+    }
+
+    // Returns the best affine approximation of a functoin.
+    pub fn best_affine_approx(&self) -> Self {
+        let wac = self.walsh_adamar();
+        let mut max_arg = 0;
+        for i in 0..wac.len() {
+            if wac[i].abs() > wac[max_arg].abs() {
+                max_arg = i;
+            }
+        }
+
+        let approx = BF::linear(self.args_amount, max_arg).unwrap();
+
+        if wac[max_arg] < 0 {
+            return approx.inverse();
+        }
+
+        approx
     }
 }
 
@@ -544,7 +617,7 @@ mod tests {
 
     #[test]
     fn cor_works() {
-        let args_amount = 28;
+        let args_amount = 16;
 
         let bf = BF::one(args_amount).unwrap();
         assert_eq!(bf.cor(), args_amount);
@@ -554,5 +627,47 @@ mod tests {
 
         let bf = BF::from_str("01101001").unwrap();
         assert_eq!(bf.cor(), 2);
+    }
+
+    #[test]
+    fn nonlinearity_works() {
+        let bf = BF::from_str("01111010").unwrap();
+        assert_eq!(bf.nonlinearity(), 1);
+
+        let bf = BF::from_str("01100000").unwrap();
+        assert_eq!(bf.nonlinearity(), 2);
+
+        let bf = BF::from_str("00000000").unwrap();
+        assert_eq!(bf.nonlinearity(), 0);
+    }
+
+    #[test]
+    fn inverse_works() {
+        let bf = BF::from_str("1100").unwrap();
+        let inv = bf.inverse();
+        assert_eq!(inv.to_string(), "0011");
+    }
+
+    #[test]
+    fn best_affine_approx_works() {
+        let bf = BF::from_str("01111010").unwrap();
+        let approx = bf.best_affine_approx();
+        assert_eq!(approx.to_string(), "01011010");
+
+        let bf = BF::zero(3).unwrap();
+        let approx = bf.best_affine_approx();
+        assert_eq!(approx.to_string(), "00000000");
+
+        let bf = BF::one(3).unwrap();
+        let approx = bf.best_affine_approx();
+        assert_eq!(approx.to_string(), "11111111");
+
+        let bf = BF::from_str("01010101").unwrap();
+        let approx = bf.best_affine_approx();
+        assert_eq!(approx.to_string(), "01010101");
+
+        let bf = BF::from_str("01100000").unwrap();
+        let approx = bf.best_affine_approx();
+        assert_eq!(approx.to_string(), "00000000");
     }
 }

@@ -97,7 +97,7 @@ pub fn mod_ws(n: usize) -> usize {
 
 /// Calculates weight of a factor
 #[inline]
-pub fn weight(mut n: Value) -> usize {
+pub fn weight(mut n: usize) -> usize {
     let mut weight = 0;
     while n != 0 {
         n = n & (n - 1);
@@ -108,8 +108,6 @@ pub fn weight(mut n: Value) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::BitAnd;
-
     use super::*;
 
     #[test]
@@ -157,12 +155,12 @@ mod tests {
 
     #[test]
     fn weight_works() {
-        assert!(weight(0b0000_0001) == 1);
-        assert!(weight(0b0000_1101) == 3);
-        assert!(weight(0b0000_0000) == 0);
-        assert!(weight(0b1000_0000) == 1);
-        assert!(weight(0b1111_1111) == 8);
-        assert!(weight(Value::MAX) == WORD_BIT_SIZE);
+        assert!(weight(0b0000_0001 as usize) == 1);
+        assert!(weight(0b0000_1101 as usize) == 3);
+        assert!(weight(0b0000_0000 as usize) == 0);
+        assert!(weight(0b1000_0000 as usize) == 1);
+        assert!(weight(0b1111_1111 as usize) == 8);
+        assert!(weight(Value::MAX as usize) == WORD_BIT_SIZE);
     }
 
     #[test]
