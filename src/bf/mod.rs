@@ -338,6 +338,14 @@ impl BF {
         pow2(self.args_amount - 1) - (wac.iter().map(|coef| coef.abs()).max().unwrap() as usize) / 2
     }
 
+    // Calculates complete nonlinearity of a function (distance to class of linear structure functions).
+    pub fn comp_nonlinearity(&self) -> usize {
+        let acv = self.autocor();
+
+        pow2(self.args_amount - 2)
+            - (acv.iter().skip(1).map(|coef| coef.abs()).max().unwrap() as usize) / 4
+    }
+
     // Returns the best affine approximation of a functoin.
     pub fn best_affine_approx(&self) -> Self {
         let wac = self.walsh_adamar();
@@ -355,6 +363,52 @@ impl BF {
         }
 
         approx
+    }
+
+    // Calculates autocorrelation of a function.
+    pub fn autocor(&self) -> Vec<i32> {
+        let mut autocor_vec = self.walsh_adamar();
+
+        autocor_vec.iter_mut().for_each(|v| *v *= *v);
+
+        for i in 0..self.args_amount {
+            let cs = pow2(i);
+            for j in 0..autocor_vec.len() / cs {
+                if j & 1 == 0 {
+                    // is even
+                    for k in 0..cs {
+                        autocor_vec[j * cs + k] += autocor_vec[(j + 1) * cs + k];
+                        // a + b
+                    }
+                } else {
+                    // is odd
+                    for k in 0..cs {
+                        autocor_vec[j * cs + k] =
+                            autocor_vec[(j - 1) * cs + k] - 2 * autocor_vec[j * cs + k];
+                        // a + b - 2b = a - b
+                    }
+                }
+            }
+        }
+
+        autocor_vec.iter_mut().for_each(|v| *v >>= self.args_amount);
+
+        autocor_vec
+    }
+
+    // Calcualtes propogation criteria degree.
+    pub fn pc_deg(&self) -> usize {
+        let acv = self.autocor();
+
+        for k in 1..=self.args_amount {
+            for comb in BinComb::new(self.args_amount, k) {
+                if acv[comb] != 0 {
+                    return k - 1;
+                }
+            }
+        }
+
+        self.args_amount
     }
 }
 
@@ -603,8 +657,10 @@ mod tests {
 
         let bf = BF::from_str("0001000100011110").unwrap();
         let wac = bf.walsh_adamar();
-        println!("{wac:?}");
-        // assert_eq!(wac, vec![0, 0, 0, 4]);
+        assert_eq!(
+            wac,
+            vec![4, 4, 4, -4, 4, 4, 4, -4, 4, 4, 4, -4, -4, -4, -4, 4]
+        );
 
         for i in 1..=3 {
             let bf = BF::one(i * 3).unwrap();
@@ -669,5 +725,31 @@ mod tests {
         let bf = BF::from_str("01100000").unwrap();
         let approx = bf.best_affine_approx();
         assert_eq!(approx.to_string(), "00000000");
+    }
+
+    #[test]
+    fn autocor_works() {
+        let bf = BF::from_str("0001").unwrap();
+        let acv = bf.autocor();
+        assert_eq!(acv, &[4, 0, 0, 0]);
+    }
+
+    #[test]
+    fn pc_cor_works() {
+        let bf = BF::from_str("0001").unwrap();
+        let pcd = bf.pc_deg();
+        assert_eq!(pcd, 2);
+    }
+
+    #[test]
+    fn comp_nonlinearity_works() {
+        let bf = BF::from_str("0001000100011110").unwrap();
+        let cn = bf.comp_nonlinearity();
+        println!("CNf = {cn}");
+
+        let bf = BF::from_str("0001000100011110000100010001111000010001000111101110111011100001")
+            .unwrap();
+        let cn = bf.comp_nonlinearity();
+        println!("CNf = {cn}");
     }
 }

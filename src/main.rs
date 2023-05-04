@@ -44,7 +44,24 @@ fn measure_cor() {
     println!("Cor immunity: {}", cor);
 }
 
+fn find_avc_limit() -> usize {
+    const N: usize = 32;
+    for i in 1..=N {
+        println!("Calculating autocor for {i}...");
+        let bf = BF::one(i).unwrap();
+        let acv = bf.autocor();
+        if !acv.iter().all(|v| *v == 1 << i) {
+            println!("Wrong for {i}!");
+            return i - 1;
+        }
+    }
+
+    N
+}
+
 fn main() {
+    let n = find_avc_limit();
+    println!("Autocor limit: {n}");
     measure_cor();
     measure_walsh();
     check_weight();
