@@ -1,4 +1,4 @@
-use super::Value;
+use crate::Value;
 
 pub const WORD_SIZE: usize = std::mem::size_of::<Value>();
 pub const WORD_BIT_SIZE: usize = WORD_SIZE * 8;

@@ -9,10 +9,7 @@ use itertools::Itertools;
 use rand::{distributions::Uniform, Rng};
 use std::str::FromStr;
 
-#[cfg(test)]
-type Value = u8;
-#[cfg(not(test))]
-type Value = u128;
+use crate::Value;
 
 /// BF represents boolean function.
 /// Arguments are stored in little-endian fashion.
