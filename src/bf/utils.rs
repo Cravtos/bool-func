@@ -1,3 +1,5 @@
+#![allow(clippy::unnecessary_cast)]
+
 use crate::Value;
 
 pub const WORD_SIZE: usize = std::mem::size_of::<Value>();
@@ -30,7 +32,7 @@ impl Iterator for BinComb {
 
         let lowbit = self.cur & !(self.cur - 1);
         let ones = self.cur & !(self.cur + lowbit);
-        self.cur = self.cur + lowbit + (ones / lowbit >> 1);
+        self.cur = self.cur + lowbit + ((ones / lowbit) >> 1);
 
         Some(old)
     }
@@ -93,6 +95,22 @@ pub fn div_ws(n: usize) -> usize {
 #[inline]
 pub fn mod_ws(n: usize) -> usize {
     n & (WORD_BIT_SIZE - 1)
+}
+
+pub fn comb(n: usize, mut r: usize) -> usize {
+    // because C(n, r) == C(n, n - r)
+    if r > n - r {
+        r = n - r;
+    }
+
+    let mut ans = 1;
+
+    for i in 1..=r {
+        ans *= n - r + i;
+        ans /= i;
+    }
+
+    ans
 }
 
 /// Calculates weight of a factor
@@ -166,7 +184,7 @@ mod tests {
     #[test]
     fn bin_comb_works() {
         // TODO: check that iter length = Ckn and all unrepeatable with given weight
-        for comb in BinComb::new(5, 1) {
+        for comb in BinComb::new(5, 2) {
             println!("{comb:05b}");
         }
     }

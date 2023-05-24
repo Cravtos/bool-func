@@ -10,4 +10,6 @@ pub enum BMError {
     InconsistentDim,
     #[error("given char doesn't convert to boolean: {0}")]
     InvalidStr(char),
+    #[error("given invalid degree: {0}")]
+    InvalidDeg(usize),
 }

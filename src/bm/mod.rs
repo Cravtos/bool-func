@@ -1,13 +1,19 @@
 pub mod errors;
 
-use crate::bf::utils::{div_ws, div_ws_ceil, mod_ws, WORD_BIT_SIZE};
+use crate::bf::{
+    utils::{comb, div_ws, div_ws_ceil, mod_ws, pow2, BinComb},
+    BF,
+};
 use errors::{BMError, Result};
 use rand::{distributions::Uniform, Rng};
-use std::{fmt, str::FromStr};
+use std::{
+    fmt::{self, Debug},
+    str::FromStr,
+};
 
 use crate::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BM {
     mat: Vec<Value>,
     rows: usize,
@@ -46,7 +52,17 @@ impl BM {
     }
 
     pub fn rank(&self) -> usize {
-        unimplemented!()
+        let mut bm = self.clone();
+        bm.gaussian_elimination();
+        for row in (0..bm.rows).rev() {
+            for col in 0..bm.cols {
+                if bm.get(row, col) != 0 {
+                    return row + 1;
+                }
+            }
+        }
+
+        0
     }
 
     pub fn get(&self, row: usize, col: usize) -> u8 {
@@ -70,6 +86,47 @@ impl BM {
         let mask = 1 << bit;
         let mask = !mask;
         self.mat[factor] &= mask;
+    }
+
+    // Builds a matrix of a form:
+    // for x1...xn where bf.eval = 1:
+    // 1 x1 ... xn x1x2 ... xn-1 xn ...
+    pub fn monomial(bf: &BF, deg: usize) -> Result<Self> {
+        if deg == 0 || deg > bf.args_amount {
+            return Err(BMError::InvalidDeg(deg));
+        }
+
+        let mut cols = 1;
+        for k in 1..=deg {
+            cols += comb(bf.args_amount, k);
+        }
+
+        let rows = bf.weight();
+        let mut bm = BM::zero(rows, cols).unwrap();
+
+        // set first col to 1
+        for i in 0..rows {
+            bm.set(i, 0);
+        }
+
+        for (row, args) in (0..pow2(bf.args_amount))
+            .filter(|&args| bf.eval(args) == 1)
+            .enumerate()
+        {
+            // args -- values of x's
+            // comb < args
+            let mut col = 1;
+            for d in 1..=deg {
+                for comb in BinComb::new(bf.args_amount, d) {
+                    if comb & args == comb {
+                        bm.set(row, col);
+                    }
+                    col += 1;
+                }
+            }
+        }
+
+        Ok(bm)
     }
 
     pub fn gaussian_elimination(&mut self) {
@@ -158,7 +215,7 @@ impl FromStr for BM {
 
     // Converts string like "1101\n1111\n0000" to boolean matrix
     fn from_str(s: &str) -> Result<Self> {
-        let str_rows: Vec<&str> = s.split("\n").collect();
+        let str_rows: Vec<&str> = s.split('\n').collect();
 
         let rows = str_rows.len();
         let cols = str_rows[0].len();
@@ -175,9 +232,9 @@ impl FromStr for BM {
         }
 
         let mut bm = BM::zero(rows, cols).unwrap();
-        for row in 0..rows {
+        for (row, str_row) in str_rows.iter().enumerate() {
             for col in 0..cols {
-                let bit = str_rows[row].chars().nth(col).unwrap();
+                let bit = str_row.chars().nth(col).unwrap();
                 match bit {
                     '1' => bm.set(row, col),
                     '0' => (),
@@ -190,14 +247,9 @@ impl FromStr for BM {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn random_works() {
-        let bm = BM::random(3, 8).unwrap();
-        println!("{bm}");
-    }
 
     #[test]
     fn from_str_works() {
@@ -211,6 +263,25 @@ mod tests {
         let s = "0110\n1101\n1111\n1111";
         let mut bm = BM::from_str(s).unwrap();
         bm.gaussian_elimination();
+        println!("{}", bm.to_string());
+    }
+
+    #[test]
+    fn rank_works() {
+        let s = "0110\n1101\n1111\n1111";
+        let bm = BM::from_str(s).unwrap();
+        assert_eq!(bm.rank(), 3);
+
+        let s = "1";
+        let bm = BM::from_str(s).unwrap();
+        assert_eq!(bm.rank(), 1);
+    }
+
+    #[test]
+    fn monomial_mat_works() {
+        let bf = BF::from_str("01010011").unwrap();
+        let deg = 2;
+        let bm = BM::monomial(&bf, deg).unwrap();
         println!("{bm}");
     }
 }

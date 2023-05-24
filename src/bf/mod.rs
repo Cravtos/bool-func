@@ -1,3 +1,5 @@
+#![allow(clippy::unnecessary_cast)]
+
 pub mod errors;
 pub mod utils;
 
@@ -175,6 +177,7 @@ impl BF {
     }
 
     // Get arithmetic normal form of function
+    #[allow(unstable_name_collisions)]
     pub fn anf(&self) -> String {
         let mut bf_copy = self.clone();
         let bf_mob = bf_copy.mobius();
