@@ -20,6 +20,7 @@ pub struct BM {
     cols: usize,
 }
 
+// WARNING: awful code below
 impl BM {
     pub fn zero(rows: usize, cols: usize) -> Result<Self> {
         if cols == 0 || rows == 0 {
